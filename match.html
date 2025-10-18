@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CareerWise — Career Matching</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#ffffff; --surface:#ffffff; --border:#e5e7eb; --text:#0f172a; --muted:#6b7280; --primary:#3165ff; --primary-600:#2656f5; --radius:14px; --shadow:0 10px 30px rgba(15,23,42,.06) }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .container{max-width:1080px;margin:0 auto;padding:24px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7aa2ff 0%, #5a6bff 35%, #6a57ff 100%);box-shadow:var(--shadow)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:12px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600}
+    .btn.primary{background:var(--primary);border-color:transparent;color:#fff}.btn.primary:hover{background:var(--primary-600)}
+    .muted{color:var(--muted)}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:700px){.grid-2{grid-template-columns:1fr}}
+    .match{border:1px solid var(--border);border-radius:16px;padding:16px;background:#fff}
+    .match .hdr{display:flex;align-items:center;justify-content:space-between}
+    .badge-pill{font-size:12px;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#1d4ed8;border:1px solid #c7d2fe}
+    .field-label{font-size:12px;font-weight:700;color:#6b7280;margin-bottom:6px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand"><div class="logo"></div><strong>CareerWise</strong></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="who" class="muted"></span>
+        <span id="badge" class="badge">U</span>
+        <a class="btn" href="dashboard.html">← Dashboard</a>
+        <button id="signOutBtn" class="btn">Sign out</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <h3 style="margin:0">Career Matching</h3>
+      <p class="muted" style="margin-top:6px">We use your latest psychometric results plus your skills & interested job roles.</p>
+
+      <div class="grid-2" style="margin-top:12px;">
+        <div>
+          <div class="field-label">Skills (comma separated)</div>
+          <input id="skills" class="btn" style="text-align:left;width:100%" placeholder="e.g., python, sql, html" value="" />
+        </div>
+        <div>
+          <div class="field-label">Interested job roles (comma separated)</div>
+          <input id="roles" class="btn" style="text-align:left;width:100%" placeholder="e.g., software developer, data analyst" value="" />
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button id="matchBtn" class="btn primary" type="button">Get Matches</button>
+        <span id="mErr" class="muted" style="display:none"></span>
+      </div>
+
+      <div id="latest" class="muted" style="margin-top:10px"></div>
+      <div id="matches" style="display:flex;flex-direction:column;gap:12px;margin-top:14px"></div>
+    </section>
+  </div>
+
+  <!-- API base (prod vs local). Keep this BEFORE the module script. -->
+  <script>
+    // PROD on Render:
+    window.__API_BASE = "https://careerwise-api.onrender.com";
+    // DEV (local): comment the line above and use:
+    // window.__API_BASE = "http://localhost:4001";
+  </script>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    // ====== CONFIG ======
+    const API_BASE = window.__API_BASE || "http://localhost:4001";
+    const SUPABASE_URL="https://awsuhluvyrxwmogzyfhr.supabase.co";
+    const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c3VobHV2eXJ4d21vZ3p5ZmhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNTI5NzksImV4cCI6MjA3MjYyODk3OX0.L_Ye8GAeC61xiW67a_bCTP5Wr7UtRja7o4_Y6mDwaLE";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.__sb = supabase;
+
+    // ====== AUTH GUARD ======
+    const whoEl = document.getElementById('who');
+    const badgeEl = document.getElementById('badge');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const latestEl = document.getElementById('latest');
+    const matchesEl = document.getElementById('matches');
+    const mErr = document.getElementById('mErr');
+    const btn = document.getElementById('matchBtn');
+
+    async function requireAuth(){
+      const { data:{ user } } = await supabase.auth.getUser();
+      const guest = localStorage.getItem("cw_guest_id");
+
+      function setupUser(label){
+        whoEl.textContent = label;
+        badgeEl.textContent = (label||'U').slice(0,1).toUpperCase();
+        signOutBtn.onclick = async ()=>{
+          await supabase.auth.signOut().catch(()=>{});
+          localStorage.removeItem("cw_guest_id");
+          location.href="index.html";
+        };
+      }
+
+      if(user){ window.__uid = user.id; setupUser(user.email); return; }
+      if(guest){ window.__uid = null; setupUser(`Guest: ${guest.replace("guest_","G-")}`); return; }
+      location.href="index.html";
+    }
+    await requireAuth();
+
+    // ====== DATA: latest psychometric result ======
+    async function getLatestResult(){
+      const uid = window.__uid;
+      if(!uid) return null; // guests can't query results
+      const { data, error } = await window.__sb
+        .from('results')
+        .select('traits, sections, badges, summary, created_at')
+        .eq('user_id', uid)
+        .order('created_at', { ascending:false })
+        .limit(1);
+      if(error){ console.warn('results select error:', error); return null; }
+      return data?.[0] || null;
+    }
+    function setLatestBanner(result){
+      if(!result){ latestEl.textContent = ""; return; }
+      const d = new Date(result.created_at);
+      latestEl.innerHTML = `Using your latest assessment from <strong>${d.toLocaleString()}</strong>.`;
+    }
+
+    // ====== RENDER ======
+    function renderMatches(list){
+      matchesEl.innerHTML = '';
+      if(!list || !list.length){
+        matchesEl.innerHTML = '<span class="muted">No matches yet — try adding more skills or roles.</span>';
+        return;
+      }
+      list.forEach(r=>{
+        const card = document.createElement('div');
+        card.className = 'match';
+        card.innerHTML = `
+          <div class="hdr">
+            <div style="font-weight:700">${r.title}</div>
+            <span class="badge-pill">${Math.round(r.score)}% fit</span>
+          </div>
+          ${r.description ? `<p class="muted" style="margin:6px 0 0;white-space:pre-wrap">${r.description}</p>` : ''}
+          ${r.why ? `<div class="muted" style="margin-top:6px"><strong>Why this match:</strong> ${r.why}</div>` : ''}
+        `;
+        matchesEl.appendChild(card);
+      });
+    }
+
+    // ====== BUTTON ======
+    btn.onclick = async ()=>{
+      btn.disabled = true; btn.textContent = 'Working…';
+      mErr.style.display='none';
+      matchesEl.innerHTML='Loading…';
+
+      try{
+        const latest = await getLatestResult();
+        if(!latest){
+          matchesEl.innerHTML='';
+          mErr.textContent='No psychometric results found. Please take the test first.';
+          mErr.style.display='inline';
+          return;
+        }
+        setLatestBanner(latest);
+
+        const skills = (document.getElementById('skills').value||'').trim();
+        // renamed input to "roles" but keep API field "interests" for compatibility
+        const roles  = (document.getElementById('roles').value||'').trim();
+
+        const resp = await fetch(`${API_BASE}/match-ai`, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({
+            skills,
+            interests: roles, // <-- send roles as "interests" to backend
+            traits: Object.fromEntries((latest.traits||[]).map(t => [t.name, (t.score||0)/100])),
+            sections: latest.sections || {}
+          })
+        });
+        if(!resp.ok){
+          const err = await resp.json().catch(()=>({error:'Match API error'}));
+          throw new Error(err.error || 'Match API error');
+        }
+        const data = await resp.json();
+        renderMatches(data.matches || []);
+      }catch(e){
+        matchesEl.innerHTML='';
+        mErr.textContent = e.message || 'Match request failed';
+        mErr.style.display='inline';
+      }finally{
+        btn.disabled = false; btn.textContent = 'Get Matches';
+      }
+    };
+  </script>
+</body>
+</html>

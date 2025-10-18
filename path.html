@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CareerWise — Personalized Path Generator</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#ffffff; --surface:#ffffff; --border:#e5e7eb; --text:#0f172a; --muted:#6b7280; --primary:#3165ff; --radius:14px; --shadow:0 10px 30px rgba(15,23,42,.06); }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .container{max-width:1080px;margin:0 auto;padding:24px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7aa2ff 0%, #5a6bff 35%, #6a57ff 100%);box-shadow:var(--shadow)}
+    .btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;padding:10px 14px;border-radius:12px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600}
+    .badge{width:28px;height:28px;border-radius:8px;background:#eef2ff;color:#1d4ed8;display:grid;place-items:center;font-weight:800}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .input{padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fff;min-width:260px}
+    .section{margin:14px 0;padding:16px;border:1px solid var(--border);border-radius:14px;background:#fff}
+    .muted{color:var(--muted)}
+    a{color:#1d4ed8;text-decoration:none} a:hover{text-decoration:underline}
+    .chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:12px;color:#374151}
+    .small{font-size:12px;color:#6b7280}
+    /* Better PDF page breaks */
+    .section{break-inside: avoid; page-break-inside: avoid;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand"><div class="logo"></div><strong>CareerWise</strong></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="who" class="muted"></span>
+        <span id="badge" class="badge">U</span>
+        <button id="signOutBtn" class="btn" type="button">Sign out</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0 0 6px">Personalized Path Generator</h2>
+          <p class="muted" style="margin-top:0">Type any role (e.g., <em>Data Scientist</em>, <em>Cloud Engineer</em>, <em>Product Manager</em>) and get a real-time roadmap.</p>
+        </div>
+        <a href="dashboard.html" class="btn" aria-label="Back to dashboard">← Back</a>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <input id="roleInput" class="input" type="text" placeholder="Type a role… e.g., Data Scientist" />
+        <button id="generatePathBtn" class="btn" type="button">🛤️ Generate Path</button>
+        <button id="downloadBtn" class="btn" type="button" disabled>⬇️ Download PDF</button>
+      </div>
+
+      <div id="lastGen" class="small" style="margin-top:8px"></div>
+      <!-- This wrapper will be used to compose the PDF -->
+      <div id="pdfContent">
+        <div id="timelineChips" style="margin-top:8px"></div>
+        <div id="pathContainer" style="margin-top:14px"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- PDF lib (must be before the module script) -->
+  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    const SUPABASE_URL="https://awsuhluvyrxwmogzyfhr.supabase.co";
+    const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c3VobHV2eXJ4d21vZ3p5ZmhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNTI5NzksImV4cCI6MjA3MjYyODk3OX0.L_Ye8GAeC61xiW67a_bCTP5Wr7UtRja7o4_Y6mDwaLE";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // auth (same as before)
+    const whoEl = document.getElementById('who');
+    const badgeEl = document.getElementById('badge');
+    const signOutBtn = document.getElementById('signOutBtn');
+    async function requireAuth(){
+      const { data:{session} } = await supabase.auth.getSession();
+      let guest = localStorage.getItem("cw_guest_id");
+      if (!session && !guest) {
+        guest = "guest_" + crypto.randomUUID();
+        localStorage.setItem("cw_guest_id", guest);
+      }
+      const label = session ? session.user.email : `Guest: ${localStorage.getItem("cw_guest_id")?.replace("guest_","G-")}`;
+      whoEl.textContent = label; badgeEl.textContent = (label||'U').slice(0,1).toUpperCase();
+      signOutBtn.onclick = async ()=>{ await supabase.auth.signOut().catch(()=>{}); localStorage.removeItem("cw_guest_id"); location.href="index.html"; };
+    }
+    await requireAuth();
+
+    // --- Path Generator (free-text role) ---
+    const FN_URL = "https://awsuhluvyrxwmogzyfhr.supabase.co/functions/v1/paths-generate";
+    const btn   = document.getElementById("generatePathBtn");
+    const input = document.getElementById("roleInput");
+    const pathContainer = document.getElementById("pathContainer");
+    const chips = document.getElementById("timelineChips");
+    const lastGen = document.getElementById("lastGen");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    // simple slug for filename
+    const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+
+    btn.addEventListener("click", async () => {
+      const roleText = (input.value || "").trim();
+      if (!roleText) { input.focus(); return; }
+
+      // disable PDF until we render a fresh plan
+      downloadBtn.disabled = true;
+
+      pathContainer.innerHTML = `<div class="section">Generating a roadmap for <b>${roleText}</b>…</div>`;
+      chips.innerHTML = "";
+      lastGen.textContent = "";
+      try {
+        const res = await fetch(FN_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ query: roleText }) // free-text
+        });
+        const data = await res.json();
+
+        if (!res.ok || data?.error) {
+          pathContainer.innerHTML = `<div class="section" style="color:#b91c1c">Error: ${data?.error || res.statusText}</div>`;
+          return;
+        }
+
+        // timeline
+        chips.innerHTML = "";
+        if (data.timeline) {
+          const t = data.timeline;
+          chips.insertAdjacentHTML("beforeend",
+            `<div class="row" style="margin-top:8px">
+              <span class="chip">Fast-track: ${t.fastTrackMonths || "—"} months</span>
+              <span class="chip">Standard: ${t.standardMonths || "—"} months</span>
+            </div>`
+          );
+        }
+
+        // stages
+        pathContainer.innerHTML = `
+          ${(data.stages || []).map((s) => `
+            <div class="section">
+              <h3 style="margin:0 0 6px">${s.name}</h3>
+              ${Array.isArray(s.outcomes) ? `<ul>${s.outcomes.map((o)=>`<li>${o}</li>`).join("")}</ul>` : ""}
+
+              ${(s.core?.length) ? `<h4 style="margin:12px 0 6px">Core</h4>
+              <ul>${s.core.map((c)=>`<li><a href="${c.url}" target="_blank" rel="noreferrer">${c.title}</a>${c.provider?` · ${c.provider}`:""}</li>`).join("")}</ul>` : ""}
+
+              ${s.recommended_now?.length ? `
+                <h4 style="margin:12px 0 6px">Recommended now</h4>
+                <ul>${s.recommended_now.map((r)=>`<li><a href="${r.url}" target="_blank" rel="noreferrer">${r.title}</a> · ${r.provider ?? ""} · ${r.score ?? ""}</li>`).join("")}</ul>
+              ` : ``}
+
+              ${(s.projects?.length) ? `<h4 style="margin:12px 0 6px">Projects</h4>
+              <ul>${s.projects.map((p)=>`<li>${p.title}${p.deliverable?` — ${p.deliverable}`:""}</li>`).join("")}</ul>` : ""}
+            </div>
+          `).join("")}
+        `;
+
+        lastGen.textContent = data.generated_at ? `Last generated: ${new Date(data.generated_at).toLocaleString()}` : "";
+
+        // enable PDF
+        downloadBtn.disabled = false;
+
+        // store the last role for filename
+        downloadBtn.dataset.role = roleText;
+
+      } catch (e) {
+        pathContainer.innerHTML = `<div class="section" style="color:#b91c1c">Network error: ${e}</div>`;
+      }
+    });
+
+    // --- Download PDF ---
+    downloadBtn.addEventListener("click", async () => {
+  if (downloadBtn.disabled) return;
+
+  const roleText = downloadBtn.dataset.role || (input.value || "Roadmap");
+  const when = new Date().toISOString().slice(0,10);
+  const source = document.getElementById("pdfContent"); // export the visible node
+
+  // wait for fonts to load (prevents blank PDFs on some browsers)
+  if (document.fonts?.ready) { try { await document.fonts.ready; } catch {} }
+
+  const opt = {
+    margin: 10,
+    filename: `roadmap_${slug(roleText)}_${when}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff', // force white background
+      logging: false
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'legacy'] } // respects .section { break-inside: avoid; }
+  };
+
+  await html2pdf().set(opt).from(source).save();
+});
+</script>
+</body>
+</html>

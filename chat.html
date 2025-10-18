@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CareerWise — Career Chatbot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#f7f8fb; --surface:#ffffff; --text:#0f172a; --muted:#6b7280;
+      --border:#e5e7eb; --primary:#3165ff; --primary-600:#2452ef;
+      --radius:10px; --shadow:0 6px 18px rgba(15,23,42,.04);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{max-width:980px;margin:0 auto;padding:28px}
+    .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7aa2ff 0%, #5a6bff 35%, #6a57ff 100%);box-shadow:var(--shadow)}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;font-weight:600;cursor:pointer}
+    .btn:hover{border-color:#d1d5db}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px}
+    .sub{color:var(--muted);font-size:13px}
+
+    /* professional chat blocks (no balloons) */
+    .chat{display:flex;flex-direction:column;gap:12px;margin-top:12px;min-height:320px;max-height:62vh;overflow:auto;padding-right:6px}
+    .row{display:flex;gap:12px;align-items:flex-start}
+    .msg-block{flex:1;background:#fff;border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:10px;box-shadow:var(--shadow);padding:12px 14px}
+    .msg-meta{font-size:12px;letter-spacing:.02em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;font-weight:700}
+    .msg{color:var(--text)}
+    .msg :where(p,ul,ol){margin:8px 0}
+    .msg h3{margin:6px 0 2px}
+
+    /* typing indicator */
+    .typing{display:inline-flex;gap:4px;vertical-align:middle}
+    .typing span{width:6px;height:6px;border-radius:50%;background:#cbd5e1;animation:blink 1s infinite ease-in-out}
+    .typing span:nth-child(2){animation-delay:.2s}
+    .typing span:nth-child(3){animation-delay:.4s}
+    @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+    /* quick chips */
+    .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .chip{padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:#fff;color:#1f2937;font-size:13px;cursor:pointer}
+    .chip:hover{border-color:#d1d5db}
+
+    /* composer */
+    .composer{display:flex;gap:8px;margin-top:12px;align-items:center}
+    .input{flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:#fff;outline:none}
+    .primary{padding:10px 14px;border-radius:10px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-weight:700;cursor:pointer}
+    .primary:disabled{opacity:.6;cursor:not-allowed}
+    .ghost{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;font-weight:600;cursor:pointer}
+    .ghost:hover{border-color:#d1d5db}
+
+    /* header tools */
+    .toolbar{display:flex;gap:8px;align-items:center}
+    .toolbtn{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;font-weight:600;cursor:pointer}
+    .toolbtn:hover{border-color:#d1d5db}
+    .pill{display:inline-block;padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:#f9fafb;font-size:12px;color:#111827}
+
+    @media (max-width:640px){ .wrap{padding:16px} .chat{max-height:64vh} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><div class="logo"></div><strong>CareerWise</strong></div>
+      <a class="btn" href="dashboard.html">← Back</a>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0 0 4px">Career Chatbot</h2>
+          <div class="sub">I answer only career topics: roles, skills, roadmaps, resumes, interviews, job search, growth. Off-topic → I’ll steer you back.</div>
+        </div>
+        <div class="toolbar">
+          <!-- <span class="pill">Career-only mode ON</span>  (uncomment if you want this badge visible) -->
+          <button id="mic" class="toolbtn" type="button">🎙️ Voice</button>
+          <button id="speak" class="toolbtn" type="button">🔊 Read</button>
+        </div>
+      </div>
+
+      <!-- Starter suggestions (static) -->
+      <div class="chips" id="chips">
+        <button class="chip" data-q="Short roadmap to Data Analyst from non-CS. Include a 3–6 month timeline.">Roadmap: Data analyst</button>
+        <button class="chip" data-q="Top 7 skills for Cloud Engineer in 2025 (beginner → intermediate).">Skills: Cloud engineer</button>
+        <button class="chip" data-q="Rewrite my resume summary for QA role: <paste here>. Keep it 2 lines, quantify impact.">Resume summary (QA)</button>
+      </div>
+
+      <!-- Chat timeline -->
+      <div id="chat" class="chat"></div>
+
+      <!-- Composer -->
+      <div class="composer">
+        <input id="msg" class="input" placeholder="Ask a career question… e.g., 'How do I switch to AI from non-CS?'" />
+        <button id="copyLast" class="ghost" type="button">Copy answer</button>
+        <button id="clear" class="ghost" type="button">Clear</button>
+        <button id="send" class="primary" type="button">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Markdown + sanitize -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
+
+  <script type="module">
+    // ====== CONFIG ======
+    const FN_URL = "https://awsuhluvyrxwmogzyfhr.supabase.co/functions/v1/chat-career";
+    const ANON   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c3VobHV2eXJ4d21vZ3p5ZmhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNTI5NzksImV4cCI6MjA3MjYyODk3OX0.L_Ye8GAeC61xiW67a_bCTP5Wr7UtRja7o4_Y6mDwaLE";
+
+    // ====== ELEMENTS ======
+    const chat = document.getElementById('chat');
+    const msg  = document.getElementById('msg');
+    const send = document.getElementById('send');
+    const clearBtn = document.getElementById('clear');
+    const copyBtn  = document.getElementById('copyLast');
+    const chips = document.getElementById('chips');
+    const micBtn = document.getElementById('mic');
+    const speakBtn = document.getElementById('speak');
+
+    // ====== STATE ======
+    let busy = false;
+    let speakOn = false;
+    let rec; // speech recognition instance
+    const history = loadHistory(); // [{role, content}]
+
+    // ====== HELPERS ======
+    const md = (text) => DOMPurify.sanitize(marked.parse(text ?? ""));
+
+    function addBlock({ mine=false, html }) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const block = document.createElement('div');
+      block.className = 'msg-block';
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      meta.textContent = mine ? 'You' : 'CareerWise';
+      const body = document.createElement('div');
+      body.className = 'msg';
+      body.innerHTML = html;
+      block.append(meta, body);
+      row.append(block);
+      chat.append(row);
+      chat.scrollTop = chat.scrollHeight;
+      return { row, body };
+    }
+
+    function typing(show=true){
+      const id = 'typing-row';
+      if (show) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.id = id;
+        const block = document.createElement('div');
+        block.className = 'msg-block';
+        block.innerHTML = `
+          <div class="msg-meta">CareerWise</div>
+          <div class="msg"><span class="typing"><span></span><span></span><span></span></span></div>`;
+        row.append(block);
+        chat.append(row);
+        chat.scrollTop = chat.scrollHeight;
+      } else {
+        document.getElementById(id)?.remove();
+      }
+    }
+
+    function renderSuggest(arr){
+      if (!Array.isArray(arr) || !arr.length) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'chips';
+      arr.forEach(t => {
+        const btn = document.createElement('button');
+        btn.className = 'chip';
+        btn.textContent = t;
+        btn.onclick = ()=>{ msg.value = t; send.click(); };
+        wrap.appendChild(btn);
+      });
+      chat.append(wrap);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function copyLastAnswer() {
+      const blocks = [...document.querySelectorAll('.msg-block')];
+      const lastAssistant = [...blocks].reverse()
+        .find(b => b.querySelector('.msg-meta')?.textContent === 'CareerWise');
+      if (!lastAssistant) return;
+      const text = lastAssistant.querySelector('.msg')?.innerText || '';
+      navigator.clipboard.writeText(text).then(()=>{
+        const old = copyBtn.textContent;
+        copyBtn.textContent = 'Copied ✓';
+        setTimeout(()=> copyBtn.textContent = old, 1200);
+      });
+    }
+
+    function speak(text){
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance((text || "").replace(/[#*_`]/g,' '));
+      u.rate = 1.03; u.pitch = 1.0;
+      window.speechSynthesis.speak(u);
+    }
+
+    function startVoice(){
+      try {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return alert("Speech recognition not supported in this browser.");
+        rec?.abort?.();
+        rec = new SR();
+        rec.lang = "en-US";
+        rec.interimResults = false;
+        rec.onresult = (e)=>{ msg.value = e.results[0][0].transcript; send.click(); };
+        rec.start();
+        micBtn.textContent = "🎙️ Listening…";
+        rec.onend = ()=> micBtn.textContent = "🎙️ Voice";
+      } catch { /* noop */ }
+    }
+
+    function saveHistory(){
+      try {
+        localStorage.setItem('cw_history', JSON.stringify(history.slice(-20)));
+      } catch {}
+    }
+    function loadHistory(){
+      try {
+        const raw = localStorage.getItem('cw_history');
+        const arr = JSON.parse(raw || "[]");
+        if (Array.isArray(arr)) return arr;
+      } catch {}
+      return [];
+    }
+
+    function stripFooterSuggest(s){
+      const i = s.indexOf('<!--SUGGEST:');
+      return i >= 0 ? s.slice(0, i) : s;
+    }
+    function parseFooterSuggest(s){
+      const m = s.match(/<!--SUGGEST:(.+?)-->/);
+      if (!m) return [];
+      try { return JSON.parse(m[1]); } catch { return []; }
+    }
+
+    // ====== INIT ======
+    if (!history.length) {
+      addBlock({ html: md("Hi! I’m your **CareerWise** assistant. Ask me about careers—roles, skills, roadmaps, resumes, interviews. Off-topic? I’ll nudge you back.") });
+    } else {
+      for (const turn of history) addBlock({ mine: turn.role === "user", html: md(turn.content) });
+    }
+
+    // ====== EVENTS ======
+    chips?.addEventListener('click', (e)=>{
+      const q = e.target?.dataset?.q; if(!q) return;
+      msg.value = q; send.click();
+    });
+    clearBtn.onclick = ()=>{
+      chat.innerHTML = '';
+      history.length = 0;
+      saveHistory();
+      addBlock({ html: md("Chat cleared. Ask me any **career** question to begin.") });
+    };
+    copyBtn.onclick = copyLastAnswer;
+    send.onclick = ask;
+    msg.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' && !e.shiftKey) ask(); });
+    micBtn.onclick = startVoice;
+    speakBtn.onclick = ()=>{
+      speakOn = !speakOn;
+      speakBtn.textContent = speakOn ? "🔊 Read: ON" : "🔊 Read";
+    };
+
+    // ====== CORE (streaming with graceful fallback) ======
+    async function ask(){
+      const text = (msg.value || '').trim();
+      if (!text || busy) return;
+      busy = true; send.disabled = true;
+
+      addBlock({ mine:true, html: md(text) });
+      history.push({ role: "user", content: text });
+      msg.value = '';
+
+      typing(true);
+      try{
+        const res = await fetch(FN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ANON}` },
+          body: JSON.stringify({ message: text, history })
+        });
+
+        typing(false);
+
+        // STREAMING path (text/plain or no explicit JSON)
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        if (res.body && (!ct.includes('application/json'))) {
+          const { body } = addBlock({ html: md(" ") }); // assistant block to update
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let full = "";
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            full += chunk;
+
+            // live update (hide footer if it already arrived)
+            const visible = stripFooterSuggest(full);
+            body.innerHTML = md(visible);
+            chat.scrollTop = chat.scrollHeight;
+          }
+
+          const visible = stripFooterSuggest(full);
+          const suggestions = parseFooterSuggest(full);
+          // finalize
+          body.innerHTML = md(visible);
+          history.push({ role: "assistant", content: visible });
+          saveHistory();
+          if (speakOn) speak(body.textContent || "");
+          if (suggestions?.length) renderSuggest(suggestions);
+          return;
+        }
+
+        // JSON fallback path
+        const raw = await res.text();
+        let data = {};
+        try { data = JSON.parse(raw); } catch {}
+        const reply =
+          data?.reply ||
+          data?.content ||
+          data?.message ||
+          data?.text ||
+          data?.choices?.[0]?.message?.content ||
+          data?.choices?.[0]?.text ||
+          null;
+
+        if (!res.ok) {
+          addBlock({ html: md(`**Error ${res.status}** — ${reply || data?.error || 'Auth/CORS issue? Check ANON key.'}`) });
+          return;
+        }
+        if (!reply) {
+          addBlock({ html: md("I’m having trouble reading the server response. Please try again.") });
+          return;
+        }
+
+        const { body } = addBlock({ html: md(reply) });
+        history.push({ role: "assistant", content: reply });
+        saveHistory();
+        if (speakOn) speak(body.textContent || "");
+
+        // If server embeds suggestions in JSON (future-proof)
+        const jsonSuggest = Array.isArray(data?.suggest) ? data.suggest : [];
+        if (jsonSuggest.length) renderSuggest(jsonSuggest);
+
+      }catch(e){
+        addBlock({ html: md("Network hiccup. Try again, or ask something like **“Short roadmap to Cloud Engineer?”**") });
+        console.error(e);
+      }finally{
+        busy = false; send.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

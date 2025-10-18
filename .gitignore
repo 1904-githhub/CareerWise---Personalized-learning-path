@@ -1,0 +1,24 @@
+node_modules/
+
+node_modules/
+*.bak
+ok
+
+# local backups
+api-server/src/server.js.bak*
+
+node_modules/
+
+supabase.tar.gz
+
+# macOS
+.DS_Store
+supabase/.DS_Store
+supabase/functions/.DS_Store
+# local temp
+supabase/.temp/
+# env / secrets
+*.env
+supabase/functions/*/.env
+# backups
+*.backup.ts

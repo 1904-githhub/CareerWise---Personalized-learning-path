@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CareerWise — Assessment</title>
+
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#ffffff; --surface:#ffffff; --border:#e5e7eb;
+      --text:#0f172a; --muted:#6b7280;
+      --primary:#3165ff; --primary-600:#2656f5; --success:#22c55e;
+      --radius:14px; --shadow:0 10px 30px rgba(15,23,42,.06);
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .container{max-width:1080px;margin:0 auto;padding:24px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7aa2ff 0%, #5a6bff 35%, #6a57ff 100%);box-shadow:var(--shadow)}
+    .chip{font-size:12px;color:#475569;border:1px solid var(--border);padding:6px 10px;border-radius:999px;background:var(--surface)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:12px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600}
+    .btn.primary{background:var(--primary);border-color:transparent;color:#fff}
+    .btn.primary:hover{background:var(--primary-600)}
+    .badge{width:28px;height:28px;border-radius:8px;background:#eef2ff;color:#1d4ed8;display:grid;place-items:center;font-weight:800}
+    .muted{color:var(--muted)} .hidden{display:none!important}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+    .inline{display:flex;align-items:center;gap:10px}
+    .q{border:1px solid var(--border);border-radius:12px;padding:14px;background:#fff}
+    .rate{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .rate button{padding:8px 12px;min-width:38px;height:38px;border-radius:12px;border:1px solid var(--border);background:#fff;font-weight:700;cursor:pointer}
+    .rate button.is-on{background:#e3edff;border-color:#c7d2fe;color:#1d4ed8}
+    .chips{display:grid;grid-template-columns:repeat(auto-fit, minmax(220px,1fr));gap:10px}
+    .chip-row{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fff}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:700px){.grid-2{grid-template-columns:1fr}}
+    .match{border:1px solid var(--border);border-radius:16px;padding:16px;background:#fff}
+    .match .hdr{display:flex;align-items:center;justify-content:space-between}
+    .badge-pill{font-size:12px;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#1d4ed8;border:1px solid #c7d2fe}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand"><div class="logo"></div><strong>CareerWise</strong></div>
+      <div class="inline">
+        <span class="chip">API: <strong id="api">Supabase Direct</strong></span>
+        <span id="who" class="muted"></span>
+        <span id="badge" class="badge">U</span>
+        <button id="signOutBtn" class="btn">Sign out</button>
+      </div>
+    </div>
+
+    <!-- App -->
+    <section class="card" aria-label="Psychometric Analysis">
+      <div class="topbar" style="margin-bottom:8px">
+        <h3 style="margin:0">Psychometric Analysis</h3>
+        <div class="inline">
+          <button id="btnReloadApi" class="btn" type="button">Reload from DB</button>
+          <button id="btnLoadDemo" class="btn" type="button">Load Demo</button>
+        </div>
+      </div>
+      <p class="muted">Answer the questions. Some are multiple-choice; others use a 1–5 scale.</p>
+
+      <div id="questions" class="inline" style="flex-direction:column;gap:10px;margin-top:12px"></div>
+
+      <div class="grid-2" style="margin-top:12px;">
+        <input id="skills" class="btn" style="text-align:left" placeholder="Skills (comma separated)" value="sql, excel" />
+        <input id="interests" class="btn" style="text-align:left" placeholder="Interests (comma separated)" value="data, analytics" />
+      </div>
+
+      <div class="inline" style="margin-top:12px">
+        <button id="analyzeBtn" class="btn primary" type="button">Run Analysis</button>
+        <span id="pErr" class="muted hidden"></span>
+      </div>
+
+      <div id="analysis" class="hidden" style="margin-top:16px;">
+        <div class="card" style="background:#f6f7f9">
+          <h4 style="margin:0 0 6px">Summary</h4>
+          <p id="summary" class="muted" style="white-space:pre-wrap;margin:0"></p>
+           <h4 style="margin:14px 0 6px">Badges</h4>
+           <div id="badges" class="chips"></div>
+
+          <h4 style="margin:14px 0 6px">Traits</h4>
+          <div id="traits" class="chips"></div>
+
+          <h4 style="margin:14px 0 6px">Cautions</h4>
+          <ul id="cautions" style="margin:0 0 0 18px;color:#111827"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Career Match" style="margin-top:18px">
+      <h3 style="margin-top:0">Career Match</h3>
+      <p class="muted">Uses traits, skills, and interests above.</p>
+      <div class="inline" style="margin-top:8px">
+        <button id="matchBtn" class="btn primary" type="button">Get Matches</button>
+        <span id="mErr" class="muted hidden"></span>
+      </div>
+      <div id="matches" class="inline" style="flex-direction:column;gap:12px;margin-top:14px"></div>
+    </section>
+  </div>
+
+  <!-- AUTH + GATEKEEPER -->
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    const SUPABASE_URL = "https://awsuhluvyrxwmogzyfhr.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c3VobHV2eXJ4d21vZ3p5ZmhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNTI5NzksImV4cCI6MjA3MjYyODk3OX0.L_Ye8GAeC61xiW67a_bCTP5Wr7UtRja7o4_Y6mDwaLE";
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.__sb = supabase;
+
+    // Handle confirmation / magic-link redirects
+    const params = new URLSearchParams(location.search);
+    if (params.has('code') || params.has('token_hash') || location.hash.includes('access_token')) {
+      try {
+        const { error } = await supabase.auth.exchangeCodeForSession(location.href);
+        if (!error) history.replaceState({}, '', location.pathname);
+      } catch {}
+    }
+
+    async function requireAuth(){
+      const { data:{session} } = await supabase.auth.getSession();
+      const guest = localStorage.getItem("cw_guest_id");
+      if(session){ setupUser(session.user.email); return; }
+      if(guest){ setupUser(`Guest: ${guest.replace("guest_","G-")}`); return; }
+      location.href="index.html";
+    }
+    function setupUser(label){
+      document.getElementById('who').textContent = label;
+      document.getElementById('badge').textContent = (label||'U').slice(0,1).toUpperCase();
+      document.getElementById('signOutBtn').onclick = async ()=>{
+        await supabase.auth.signOut().catch(()=>{});
+        localStorage.removeItem("cw_guest_id");
+        location.href="index.html";
+      };
+    }
+    await requireAuth();
+  </script>
+
+  <!-- APP LOGIC -->
+  <script>
+  (function(){
+// Read ?set=<filename> from the URL (e.g., set_02.json)
+const urlParams  = new URLSearchParams(location.search);
+const chosenSet  = urlParams.get('set');          // may be null
+const allSets = ["set_01_reduced.json","set_02.json","set_03.json","set_04.json","set_05.json"];
+
+function pickRandomSet(){ return allSets[Math.floor(Math.random()*allSets.length)]; }
+
+    const sb = () => window.__sb;
+/* ===== Likert label sets by section ===== */
+const SCALE_LABELS = {
+  personality: [
+    "Strongly Disagree","Disagree","Neutral","Agree","Strongly Agree"
+  ],
+  values_motivation: [
+    "Not Important","Slightly Important","Moderately Important","Very Important","Extremely Important"
+  ],
+  emotional_intelligence: [
+    "Very Inappropriate","Somewhat Inappropriate","Neutral","Appropriate","Very Appropriate"
+  ],
+  career_adaptability: [
+    "Strongly Disagree","Disagree","Neutral","Agree","Strongly Agree"
+  ],
+  default: ["1","2","3","4","5"]
+};
+
+/* Normalize/guess a section slug from q.section (or category text) */
+function sectionSlug(q){
+  const s = (q.section || q.category || "").toLowerCase();
+  if (s.includes("personality")) return "personality";
+  if (s.includes("value") || s.includes("motivation")) return "values_motivation";
+  if (s.includes("emotional") || s.includes("ei")) return "emotional_intelligence";
+  if (s.includes("adapt")) return "career_adaptability";
+  if (s.includes("aptitude") || s.includes("reasoning") || s.includes("novel")) return "aptitude_reasoning";
+  if (s.includes("cognitive")) return "cognitive_simulator";
+  return "default";
+}
+
+/* Get the correct label set for a Likert question */
+function labelsForQuestion(q){
+  const slug = sectionSlug(q);
+  return SCALE_LABELS[slug] || SCALE_LABELS.default;
+}
+/* ===== Badge rules by section/traits ===== */
+const BADGE_RULES = [
+  { when: s => (s.aptitude_reasoning ?? 0) >= 80, badge: { key: "logical_solver", label: "🧠 Logical Solver" } },
+  { when: s => (s.aptitude_reasoning ?? 0) >= 60 && (s.aptitude_reasoning ?? 0) < 80, badge: { key: "pattern_pro", label: "🧩 Pattern Pro" } },
+
+  { when: (_, t) => scoreOf(t, "Conscientiousness") >= 80, badge: { key: "detail_driver", label: "📋 Detail-Driven" } },
+  { when: (_, t) => scoreOf(t, "Openness") >= 80, badge: { key: "creative_idealist", label: "🌟 Creative Idealist" } },
+
+  { when: s => (s.values_motivation ?? 0) >= 80, badge: { key: "impact_builder", label: "🤝 Impact Builder" } },
+  { when: s => (s.values_motivation ?? 0) >= 60 && (s.values_motivation ?? 0) < 80, badge: { key: "growth_seeker", label: "🚀 Growth Seeker" } },
+
+  { when: s => (s.emotional_intelligence ?? 0) >= 80, badge: { key: "empathic_listener", label: "💗 Empathic Listener" } },
+  { when: s => (s.emotional_intelligence ?? 0) >= 60 && (s.emotional_intelligence ?? 0) < 80, badge: { key: "composed_mediator", label: "🧘 Composed Mediator" } },
+
+  { when: s => (s.career_adaptability ?? 0) >= 80, badge: { key: "confident_explorer", label: "🧭 Confident Explorer" } },
+  { when: s => (s.career_adaptability ?? 0) >= 60 && (s.career_adaptability ?? 0) < 80, badge: { key: "agile_planner", label: "📅 Agile Planner" } },
+
+  { when: s => (s.cognitive_simulator ?? 0) >= 80, badge: { key: "strategic_realist", label: "🧩 Strategic Realist" } },
+  { when: s => (s.cognitive_simulator ?? 0) >= 60 && (s.cognitive_simulator ?? 0) < 80, badge: { key: "reflective_decider", label: "🎯 Reflective Decider" } },
+];
+
+/* Helper to read a trait’s score from the traits array */
+function scoreOf(traitsArr, traitName){
+  const t = (traitsArr||[]).find(x => x.name === traitName);
+  return t ? t.score : 0;
+}
+
+
+    // --- Demo fallback for emergencies ---
+    const demoQuestions = [
+      { id:'q1', type:'likert', text:'I enjoy solving complex problems.', weights:{Analytical:0.8,Persistence:0.3} },
+      { id:'q2', type:'likert', text:'I communicate my ideas clearly.',   weights:{Communication:0.9} },
+      { id:'q3', type:'likert', text:'I like experimenting with new ideas.', weights:{Creativity:0.8,Adaptability:0.2} },
+      { id:'q4', type:'likert', text:'I stay focused until tasks are complete.', weights:{Persistence:0.9} },
+      { id:'q5', type:'likert', text:'I collaborate well in teams.', weights:{Collaboration:0.9} }
+    ];
+
+    const questionsEl = document.getElementById('questions');
+    const pErr = document.getElementById('pErr');
+    const mErr = document.getElementById('mErr');
+
+    // -------- Test set loader (from /data) --------
+    // -------- Test set loader (from /data) --------
+// Accepts both shapes:
+//  A) { questions: [...] }  (already fine)
+//  B) { categories: { aptitude_reasoning:[], personality:[], ... } }
+async function loadTestSet(setFile = "set_01_reduced.json"){
+  try{
+    // Try relative path first, then absolute GH Pages URL as fallback
+    const rel = await fetch(`data/${setFile}`, { cache:"no-store" });
+    let json;
+    if (rel.ok) json = await rel.json();
+    else {
+      const absUrl = "https://santosh559.github.io/careerwise-api/data/" + setFile;
+      const abs = await fetch(absUrl, { cache:"no-store" });
+      if (!abs.ok) throw new Error(`${setFile} (${abs.status})`);
+      json = await abs.json();
+    }
+    return normalizeSet(json);
+  }catch(e){
+    console.warn("Test set load error:", e);
+    return null;
+  }
+}
+
+// Normalize into a flat questions[] array the renderer understands.
+// - Flattens categories -> questions
+// - Auto-ids
+// - Converts MCQ options ["10 sec","12 sec",...] to
+//   [{key:"A",label:"10 sec"}, ...] and maps correct:"15 sec" -> "C".
+function normalizeSet(raw){
+  if (!raw) return null;
+
+  // If already in the expected shape:
+  if (Array.isArray(raw.questions)) return raw;
+
+  const out = { meta: raw.meta || {}, questions: [] };
+
+  // Helper: give keys A, B, C, D, ...
+  const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+  function pushQ(q, fallbackPrefix){
+    if (!q) return;
+
+    const id = q.id || `${fallbackPrefix}_${out.questions.length+1}`;
+
+    // Detect MCQ vs Likert by presence of 'options'
+    if (Array.isArray(q.options) && q.options.length){
+      // MCQ path
+      const opts = q.options.map((label, i) => ({
+        key: abc[i] || String(i+1),
+        label
+      }));
+
+      // If 'correct' is the *label*, convert to the matching key.
+      // If 'correct' or 'answer' is the *label*, convert to the matching key.
+let correctKey = q.correct || q.answer;   // <— add q.answer
+if (correctKey && opts.length){
+  const hit = opts.find(o => (o.key === correctKey) || (o.label === correctKey));
+  correctKey = hit ? hit.key : undefined; // couldn't match → undefined
+}
+
+
+      out.questions.push({
+        id,
+        type: "mcq",
+        text: q.q || q.text || "",
+        options: opts,
+        correct: correctKey,                // e.g., "C"
+        weights: q.weights || {},           // optional trait weights
+        section: q.section || q.category || fallbackPrefix
+      });
+    } else {
+      // Likert/default path
+      out.questions.push({
+        id,
+        type: "likert",
+        text: q.q || q.text || "",
+        reverse: !!q.reverse,               // optional
+        weights: q.weights || {},
+        section: q.section || q.category || fallbackPrefix
+      });
+    }
+  }
+
+  // Flatten categories if present
+  if (raw.categories && typeof raw.categories === "object"){
+    Object.entries(raw.categories).forEach(([cat, arr])=>{
+      (arr || []).forEach(q => pushQ(q, cat));
+    });
+  }
+
+  // If nothing got pushed, return null so caller can fallback to demo
+  if (!out.questions.length) return null;
+  return out;
+}
+
+
+    // --------- Renderers (supports Likert + MCQ) ----------
+    function renderQuestions(list){
+      questionsEl.innerHTML = '';
+      list.forEach((q, idx) => {
+        const row = document.createElement('div');
+        row.className = 'q';
+
+        let controls = '';
+        if (q.type === 'mcq' && Array.isArray(q.options)) {
+          controls = `
+  <div class="rate" data-qid="${q.id}" data-type="mcq"
+       data-weights='${JSON.stringify(q.weights||{})}'
+       data-correct='${q.correct ?? ""}'
+       data-section='${sectionSlug(q)}'>
+    ${q.options.map(opt => `
+      <button type="button" data-v="${opt.key}">${opt.key}. ${opt.label}</button>
+    `).join('')}
+  </div>`;
+
+        } else {
+          // default likert with section-specific labels
+const labels = labelsForQuestion(q);
+controls = `
+  <div class="rate" data-qid="${q.id}" data-type="likert"
+       data-weights='${JSON.stringify(q.weights||{})}'
+       data-section='${sectionSlug(q)}'
+       ${q.reverse ? 'data-reverse="1"' : ''}>
+    ${[1,2,3,4,5].map((v,i) =>
+      `<button type="button" data-v="${v}">${v}. ${labels[i] || v}</button>`
+    ).join('')}
+  </div>`;
+
+        }
+
+        row.innerHTML = `
+          <div style="font-weight:600">${idx+1}. ${q.text}</div>
+          ${controls}`;
+        questionsEl.appendChild(row);
+      });
+    }
+
+    // click to select
+    questionsEl.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-v]'); if(!btn) return;
+      const grp = btn.parentElement;
+      grp.querySelectorAll('button').forEach(b=>b.classList.remove('is-on'));
+      btn.classList.add('is-on');
+      grp.setAttribute('data-selected', btn.getAttribute('data-v'));
+    });
+
+    // collect answers (numeric for likert, key for mcq)
+    function readAnswers(){
+      const rows = questionsEl.querySelectorAll('.rate[data-qid]');
+      return Array.from(rows).map(r=>{
+        const id = r.getAttribute('data-qid');
+        const type = r.getAttribute('data-type') || 'likert';
+        const sel = r.getAttribute('data-selected');
+        return { id, type, value: type==='likert' ? Number(sel||3) : (sel||'') };
+      });
+    }
+
+    // -------- DB questions (optional) --------
+    async function loadQuestionsFromDB(){
+      const {data,error}=await sb().from('questions').select('id,text,weights,type,options,correct').eq('active',true);
+      if(error||!data?.length) throw error||new Error('No questions in DB');
+      // normalize options shape: [{key,label}]
+      const normalized = data.map(q=>{
+        const opts = Array.isArray(q.options)? q.options : null;
+        return { id:q.id, text:q.text, type:q.type||'likert', options:opts, correct:q.correct, weights:q.weights||{} };
+      });
+      return normalized;
+    }
+
+    // ---------- Analysis (trait aggregation only) ----------
+    function analyze(){
+  const traitAgg = {};   // trait -> {sum, wsum}
+  const secAgg   = {};   // section -> {sum, count}
+
+  const rows = document.querySelectorAll('.rate[data-qid]');
+  rows.forEach(row=>{
+    const type    = row.getAttribute('data-type') || 'likert';
+    const weights = JSON.parse(row.getAttribute('data-weights')||'{}');
+    const section = row.getAttribute('data-section') || 'default';
+
+    let likert0to100 = null; // for section %
+    let contrib = 0;         // -1..+1 for traits
+
+    if (type === 'likert'){
+      const v = Number(row.getAttribute('data-selected') || 3); // 1..5
+      likert0to100 = ((v - 1) / 4) * 100; // 0..100
+      contrib = (v - 3) / 2;              // -1..+1
+      if (row.hasAttribute('data-reverse')) contrib *= -1;
+    } else {
+      const pick = row.getAttribute('data-selected') || '';
+      const correct = row.getAttribute('data-correct') || '';
+      const correct01 = correct ? (pick ? (pick === correct ? 1 : 0) : 0) : null;
+      if (correct01 !== null) likert0to100 = correct01 * 100;
+      contrib = correct ? (pick ? (pick === correct ? 1 : -1) : 0) : 0;
+    }
+
+    if (likert0to100 !== null){
+      if(!secAgg[section]) secAgg[section] = { sum:0, count:0 };
+      secAgg[section].sum += likert0to100;
+      secAgg[section].count += 1;
+    }
+
+    Object.entries(weights).forEach(([trait,w])=>{
+      if(!traitAgg[trait]) traitAgg[trait] = { sum:0, wsum:0 };
+      traitAgg[trait].sum  += contrib * Number(w);
+      traitAgg[trait].wsum += Math.abs(Number(w));
+    });
+  });
+
+  const traits = Object.entries(traitAgg).map(([name,v])=>{
+    const z = v.wsum ? (v.sum / v.wsum) : 0;
+    return { name, score: Math.round(50 + z*50) };
+  }).sort((a,b)=>b.score-a.score);
+
+  const sections = {};
+  Object.entries(secAgg).forEach(([slug,o])=>{
+    sections[slug] = o.count ? Math.round(o.sum / o.count) : 0;
+  });
+
+  const badges = [];
+  BADGE_RULES.forEach(rule=>{
+    try{ if (rule.when(sections, traits)) badges.push(rule.badge); }catch{}
+  });
+
+  const summary = (badges.length || traits.length)
+    ? `Top strengths: ${traits.slice(0,3).map(t=>t.name).join(', ')}`
+    : 'Answer questions to see results.';
+  const cautions = traits.filter(t=>t.score < 45).map(t=>`Consider developing ${t.name}.`);
+
+  return { summary, traits, cautions, sections, badges };
+}
+
+
+    // -------- Career matches from Supabase --------
+    async function getMatches(){
+      const {data}=await sb().from('careers').select('title,traits,description');
+      const {traits}=analyze();
+      const u={}; traits.forEach(t=>u[t.name]=t.score/100);
+
+      function sim(a,b){
+        const keys=new Set([...Object.keys(a),...Object.keys(b)]);
+        let dot=0,na=0,nb=0;
+        keys.forEach(k=>{ const x=a[k]||0, y=b[k]||0; dot+=x*y; na+=x*x; nb+=y*y; });
+        const d = Math.sqrt(na)*Math.sqrt(nb) || 1;
+        return dot/d;
+      }
+
+      return (data||[])
+        .map(c=>{
+          const ct={}; Object.entries(c.traits||{}).forEach(([k,v])=>ct[k]=Number(v)||0);
+          return {...c, score: Math.round(Math.max(0,sim(u,ct))*100)};
+        })
+        .sort((a,b)=>b.score-a.score)
+        .slice(0,5);
+    }
+
+    // -------- Buttons --------
+    document.getElementById('btnLoadDemo').onclick = async () => {
+  // If a set is specified in the URL, use it; else default to set_01
+  const file = chosenSet || "set_01_reduced.json";
+  const set  = await loadTestSet(file);
+  if (set && Array.isArray(set.questions) && set.questions.length) {
+    renderQuestions(set.questions);
+  } else {
+    renderQuestions(demoQuestions);
+  }
+};
+
+
+    document.getElementById('btnReloadApi').onclick = async () => {
+      try{
+        const list = await loadQuestionsFromDB();
+        renderQuestions(list);
+      }catch{
+        renderQuestions(demoQuestions);
+      }
+    };
+
+    document.getElementById('analyzeBtn').onclick = () => {
+      const res = analyze();
+      document.getElementById('summary').textContent = res.summary;
+      // Badges
+const badgesEl = document.getElementById('badges');
+badgesEl.innerHTML = '';
+res.badges.forEach(b=>{
+  const div = document.createElement('div');
+  div.className = 'chip-row';
+  div.innerHTML = `<span>${b.label}</span>`;
+  badgesEl.appendChild(div);
+});
+
+      const traitsEl = document.getElementById('traits'); traitsEl.innerHTML='';
+      res.traits.forEach(t=>{
+        const row = document.createElement('div');
+        row.className='chip-row';
+        row.innerHTML=`<span>${t.name}</span><span class="muted">${t.score}/100</span>`;
+        traitsEl.appendChild(row);
+      });
+
+      const cautionsEl = document.getElementById('cautions'); cautionsEl.innerHTML='';
+      res.cautions.forEach(c=>{
+        const li=document.createElement('li'); li.textContent=c; cautionsEl.appendChild(li);
+      });
+
+      document.getElementById('analysis').classList.remove('hidden');
+    };
+
+    document.getElementById('matchBtn').onclick = async () => {
+      mErr.classList.add('hidden');
+      const wrap = document.getElementById('matches'); wrap.innerHTML='Loading…';
+      try{
+        const res = await getMatches(); wrap.innerHTML='';
+        res.forEach(r=>{
+          const card=document.createElement('div'); card.className='match';
+          card.innerHTML=`
+            <div class="hdr"><div style="font-weight:700">${r.title}</div>
+              <span class="badge-pill">${r.score}% fit</span></div>
+            <p class="muted" style="margin:6px 0 0;white-space:pre-wrap">${r.description||''}</p>`;
+          wrap.appendChild(card);
+        });
+      }catch(err){
+        wrap.innerHTML=''; mErr.textContent = err?.message || 'Match error'; mErr.classList.remove('hidden');
+      }
+    };
+
+    // -------- Initial load: prefer DB; fallback JSON; then mini demo --------
+    // -------- Initial load: prefer DB; fallback JSON (uses ?set=...), else mini demo --------
+(async function boot(){
+  try {
+    // If you have questions in Supabase, use them
+    const list = await loadQuestionsFromDB();
+    renderQuestions(list);
+  } catch {
+    // Otherwise use the set from the URL, or pick one at random if none given
+    const file = chosenSet || pickRandomSet();
+    const set  = await loadTestSet(file);
+    if (set?.questions?.length) {
+      renderQuestions(set.questions);
+    } else {
+      renderQuestions(demoQuestions);
+    }
+  }
+})();
+
+  })();
+  </script>
+</body>
+</html>
